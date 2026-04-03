@@ -3,122 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Business Login - Isaiah Business Invoices</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="styles/main.css">
-</head>
-<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen flex items-center justify-center px-4">
-  <div class="w-full max-w-md">
-    <!-- Logo -->
-    <div class="text-center mb-8">
-      <h1 class="text-4xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-        Isaiah Business Invoices
-      </h1>
-      <p class="text-gray-400 mt-2">Business Owner Login</p>
-    </div>
-
-    <!-- Login Form -->
-    <div class="bg-gradient-to-br from-purple-500/10 to-cyan-500/10 rounded-2xl border border-purple-500/20 p-8 backdrop-blur-sm">
-      <form id="loginForm" class="space-y-6">
-        <!-- Email -->
-        <div>
-          <label class="block text-gray-300 text-sm font-semibold mb-2">Email Address</label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            required
-            class="w-full bg-purple-900/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
-            placeholder="you@example.com"
-          />
-        </div>
-
-        <!-- Password -->
-        <div>
-          <label class="block text-gray-300 text-sm font-semibold mb-2">Password</label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            required
-            class="w-full bg-purple-900/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
-            placeholder="••••••••"
-          />
-        </div>
-
-        <!-- Error Message -->
-        <div id="errorMessage" class="hidden bg-red-900/30 border border-red-500/50 text-red-300 rounded-lg p-3 text-sm"></div>
-
-        <!-- Submit Button -->
-        <button
-          type="submit"
-          class="w-full bg-gradient-to-r from-purple-600 to-cyan-600 text-white font-semibold py-3 rounded-lg hover:shadow-lg hover:shadow-purple-500/50 transition transform hover:scale-105"
-        >
-          Sign In
-        </button>
-      </form>
-
-      <!-- Divider -->
-      <div class="my-6 relative">
-        <div class="absolute inset-0 flex items-center">
-          <div class="w-full border-t border-purple-500/20"></div>
-        </div>
-        <div class="relative flex justify-center text-sm">
-          <span class="px-2 bg-gradient-to-br from-purple-500/10 to-cyan-500/10 text-gray-400">
-            New to InvoicePro?
-          </span>
-        </div>
-      </div>
-
-      <!-- Register Link -->
-      <a
-        href="register.html"
-        class="block text-center text-purple-400 hover:text-purple-300 font-semibold transition"
-      >
-        Create an account
-      </a>
-    </div>
-  </div>
-
-  <script src="js/auth.js"></script>
+  <title>Redirecting...</title>
   <script>
-    // Handle login form submission
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const errorMessage = document.getElementById('errorMessage');
-
-      try {
-        errorMessage.classList.add('hidden');
-
-        const response = await fetch(`${API_URL}/auth/login`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, password }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          errorMessage.textContent = data.message || 'Login failed';
-          errorMessage.classList.remove('hidden');
-          return;
-        }
-
-        // Save token and redirect
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        window.location.href = 'dashboard.html';
-      } catch (error) {
-        console.error('Login error:', error);
-        errorMessage.textContent = 'An error occurred. Please try again.';
-        errorMessage.classList.remove('hidden');
-      }
-    });
+    // Redirect to homepage - no login needed anymore
+    // Just click the logo to access admin dashboard
+    window.location.href = 'index.html';
   </script>
+</head>
+<body>
+  <p>Redirecting to homepage...</p>
 </body>
 </html>
