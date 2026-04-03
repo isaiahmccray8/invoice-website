@@ -1,0 +1,16 @@
+{
+  "name": "invoice-website",
+  "version": "1.0.0",
+  "description": "Isaiah Business Invoices - Professional invoice management system",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "cd backend && npm install && npm start",
+    "install-all": "npm install && cd backend && npm install"
+  },
+  "keywords": ["invoice", "business", "payments"],
+  "author": "Isaiah McCray",
+  "license": "MIT",
+  "engines": {
+    "node": "18.x"
+  }
+}
