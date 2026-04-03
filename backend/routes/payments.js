@@ -13,6 +13,15 @@ paypal.configure({
   client_secret: process.env.PAYPAL_CLIENT_SECRET,
 });
 
+// Get Stripe publishable key
+router.get('/stripe/key', (req, res) => {
+  const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
+  if (!publishableKey) {
+    return res.status(500).json({ message: 'Stripe configuration missing' });
+  }
+  res.json({ publishableKey });
+});
+
 // Create Stripe checkout session
 router.post('/stripe/checkout', async (req, res, next) => {
   try {
@@ -53,6 +62,61 @@ router.post('/stripe/checkout', async (req, res, next) => {
     });
 
     res.json({ sessionId: session.id, clientSecret: session.client_secret });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Verify Stripe checkout session
+router.post('/stripe/verify', async (req, res, next) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({ message: 'Session ID required' });
+    }
+
+    // Retrieve session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    const invoiceId = session.metadata?.invoiceId;
+
+    if (!invoiceId) {
+      return res.status(400).json({ message: 'Invoice ID not found in session' });
+    }
+
+    // Check if payment was successful
+    if (session.payment_status === 'paid') {
+      // Update invoice status if not already paid
+      const invoice = await db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoiceId);
+      if (invoice && invoice.status !== 'paid') {
+        const now = Date.now();
+        await db.prepare(`
+          UPDATE invoices
+          SET status = ?, updatedAt = ?
+          WHERE id = ?
+        `).run('paid', now, invoiceId);
+
+        // Create payment record
+        const paymentId = uuidv4();
+        await db.prepare(`
+          INSERT INTO payments (id, invoiceId, userId, amount, paymentMethod, transactionId, status, clientEmail, clientName, paidAt, createdAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(paymentId, invoiceId, invoice.userId, invoice.totalWithFee, 'stripe', session.payment_intent, 'success', invoice.clientEmail, invoice.clientName, now, now);
+      }
+
+      res.json({
+        message: 'Payment verified',
+        invoiceId: invoiceId,
+        paymentStatus: 'paid'
+      });
+    } else {
+      res.status(400).json({ message: 'Payment not completed', paymentStatus: session.payment_status });
+    }
   } catch (error) {
     next(error);
   }

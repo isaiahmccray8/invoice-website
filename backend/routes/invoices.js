@@ -76,7 +76,7 @@ router.get('/:id', async (req, res, next) => {
 // Create invoice
 router.post('/', verifyToken, async (req, res, next) => {
   try {
-    const { clientName, clientEmail, items, dueDate, notes } = req.body;
+    const { clientName, clientEmail, items, issueDate, dueDate, notes } = req.body;
 
     if (!clientName || !clientEmail || !items || !dueDate) {
       return res.status(400).json({ message: 'Missing required fields' });
@@ -99,9 +99,9 @@ router.post('/', verifyToken, async (req, res, next) => {
 
     // Insert invoice
     await db.prepare(`
-      INSERT INTO invoices (id, userId, invoiceNumber, clientName, clientEmail, subtotal, tax, total, paymentFee, totalWithFee, dueDate, status, notes, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(invoiceId, req.user.id, invoiceNumber, clientName, clientEmail, subtotal, tax, total, paymentFee, totalWithFee, dueDate, 'draft', notes || null, now, now);
+      INSERT INTO invoices (id, userId, invoiceNumber, clientName, clientEmail, subtotal, tax, total, paymentFee, totalWithFee, issueDate, dueDate, status, notes, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(invoiceId, req.user.id, invoiceNumber, clientName, clientEmail, subtotal, tax, total, paymentFee, totalWithFee, issueDate, dueDate, 'draft', notes || null, now, now);
 
     // Insert invoice items
     for (const item of items) {

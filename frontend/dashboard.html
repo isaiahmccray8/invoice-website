@@ -250,18 +250,35 @@
                 <p class="text-xs text-gray-500">(Base: $${invoice.total.toFixed(2)} + 3% fee)</p>
               </div>
               <div class="flex gap-2">
-                <button
-                  onclick="sharePaymentLink('${invoice.invoiceNumber}', event)"
-                  class="px-4 py-2 bg-green-500/20 border border-green-500/50 text-green-300 rounded hover:bg-green-500/30 transition text-sm font-semibold"
-                  title="Share payment link with client">
-                  💰 Share Payment
-                </button>
+                ${invoice.status === 'draft' ? `
+                  <button
+                    onclick="sendInvoice('${invoice.id}', event)"
+                    class="px-4 py-2 bg-blue-500/20 border border-blue-500/50 text-blue-300 rounded hover:bg-blue-500/30 transition text-sm font-semibold"
+                    title="Send invoice to make it searchable by client">
+                    📤 Send Invoice
+                  </button>
+                ` : `
+                  <button
+                    onclick="sharePaymentLink('${invoice.invoiceNumber}', event)"
+                    class="px-4 py-2 bg-green-500/20 border border-green-500/50 text-green-300 rounded hover:bg-green-500/30 transition text-sm font-semibold"
+                    title="Share payment link with client">
+                    💰 Share Payment
+                  </button>
+                `}
                 <button
                   onclick="viewInvoice('${invoice.id}', event)"
                   class="px-4 py-2 bg-purple-500/20 border border-purple-500/50 text-purple-300 rounded hover:bg-purple-500/30 transition text-sm font-semibold"
                   title="View invoice details">
                   👁️ View
                 </button>
+                ${invoice.status === 'paid' ? `
+                  <button
+                    onclick="deleteInvoice('${invoice.id}', '${invoice.invoiceNumber}', event)"
+                    class="px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-300 rounded hover:bg-red-500/30 transition text-sm font-semibold"
+                    title="Delete paid invoice">
+                    🗑️ Delete
+                  </button>
+                ` : ''}
               </div>
             </div>
         </div>
@@ -384,6 +401,83 @@
       }).catch(() => {
         alert(message);
       });
+    }
+
+    async function sendInvoice(invoiceId, element) {
+      event.stopPropagation();
+      const token = localStorage.getItem('token');
+
+      try {
+        const btn = element.target.closest('button');
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '⏳ Sending...';
+
+        const response = await fetch(`${API_URL}/invoices/${invoiceId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ status: 'sent' })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to send invoice');
+        }
+
+        // Show success message
+        alert('✓ Invoice sent! Clients can now search for it by name or invoice number.');
+
+        // Reload invoices to update the UI
+        await loadInvoices();
+      } catch (error) {
+        console.error('Error sending invoice:', error);
+        alert('Failed to send invoice. Please try again.');
+        const btn = element.target.closest('button');
+        btn.disabled = false;
+        btn.textContent = '📤 Send Invoice';
+      }
+    }
+
+    async function deleteInvoice(invoiceId, invoiceNumber, element) {
+      event.stopPropagation();
+
+      // Confirm deletion
+      const confirmed = confirm(`Are you sure you want to delete invoice ${invoiceNumber}? This action cannot be undone.`);
+      if (!confirmed) return;
+
+      const token = localStorage.getItem('token');
+
+      try {
+        const btn = element.target.closest('button');
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '⏳ Deleting...';
+
+        const response = await fetch(`${API_URL}/invoices/${invoiceId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete invoice');
+        }
+
+        // Show success message
+        alert('✓ Invoice deleted successfully.');
+
+        // Reload invoices to update the UI
+        await loadInvoices();
+      } catch (error) {
+        console.error('Error deleting invoice:', error);
+        alert('Failed to delete invoice. Please try again.');
+        const btn = element.target.closest('button');
+        btn.disabled = false;
+        btn.textContent = '🗑️ Delete';
+      }
     }
 
     function logout() {

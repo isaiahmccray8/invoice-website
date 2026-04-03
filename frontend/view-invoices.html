@@ -94,7 +94,7 @@
 
       resultsContainer.innerHTML = filtered.map(inv => `
         <button
-          onclick="openInvoice('${inv._id}')"
+          onclick="openInvoice('${inv.id}')"
           class="w-full text-left bg-purple-900/30 hover:bg-purple-900/50 border border-purple-500/30 hover:border-purple-500/50 rounded-lg p-4 transition"
         >
           <div class="flex justify-between items-start">
