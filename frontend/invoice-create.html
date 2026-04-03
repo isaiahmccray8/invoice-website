@@ -169,10 +169,57 @@
 
   <script src="js/main.js"></script>
   <script>
-    // Check if logged in
-    if (!localStorage.getItem('token')) {
-      window.location.href = 'login.html';
+    // Auto-authenticate if in admin mode
+    async function setupAdminMode() {
+      const adminMode = localStorage.getItem('adminMode');
+      if (adminMode && !localStorage.getItem('token')) {
+        try {
+          // Register/login as admin user
+          const response = await fetch('http://localhost:5000/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: 'admin@isaiahbusiness.local',
+              password: 'admin123!@#',
+              businessName: 'Isaiah Business Invoices',
+              businessEmail: 'isaiahmccray8@gmail.com'
+            })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+          } else {
+            // User might already exist, try logging in
+            const loginResponse = await fetch('http://localhost:5000/api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: 'admin@isaiahbusiness.local',
+                password: 'admin123!@#'
+              })
+            });
+
+            if (loginResponse.ok) {
+              const data = await loginResponse.json();
+              localStorage.setItem('token', data.token);
+              localStorage.setItem('user', JSON.stringify(data.user));
+            }
+          }
+        } catch (error) {
+          console.log('Admin setup error:', error);
+        }
+      }
     }
+
+    // Check if logged in or in admin mode
+    if (!localStorage.getItem('token') && !localStorage.getItem('adminMode')) {
+      window.location.href = 'index.html';
+    }
+
+    // Set up admin mode on page load
+    document.addEventListener('DOMContentLoaded', setupAdminMode);
 
     // Set today's date as default
     const today = new Date().toISOString().split('T')[0];
