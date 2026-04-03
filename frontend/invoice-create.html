@@ -346,7 +346,8 @@
         }
 
         alert('Invoice created successfully!');
-        window.location.href = 'dashboard.html';
+        // Force reload to show new invoice
+        window.location.href = 'dashboard.html?refresh=' + Date.now();
       } catch (error) {
         console.error('Error:', error);
         showError('An error occurred. Please try again.');
