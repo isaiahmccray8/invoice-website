@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Invoice - Isaiah Business Invoices</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://js.stripe.com/v3/"></script>
   <link rel="stylesheet" href="styles/main.css">
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen">
@@ -113,24 +112,16 @@
         <!-- Payment Methods -->
         <div id="paymentSection" class="hidden">
           <p class="text-gray-500 text-sm mb-4">PAYMENT METHODS</p>
-          <p class="text-gray-600 mb-6">Please send <strong>$${invoice?.totalWithFee || '0.00'}</strong> using any of the payment methods below:</p>
+          <p class="text-gray-600 mb-6">Please send <strong id="payAmount">$0.00</strong> using any of the payment methods below:</p>
 
           <div class="space-y-3">
             <!-- Cash App -->
-            <a
-              href="https://cash.app/$IsaiahMcCray4"
-              target="_blank"
-              class="block w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold py-4 rounded-lg hover:shadow-lg transition transform hover:scale-105 text-center"
-            >
+            <a href="https://cash.app/$IsaiahMcCray4" target="_blank" class="block w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold py-4 rounded-lg hover:shadow-lg transition transform hover:scale-105 text-center">
               💵 Pay with Cash App
             </a>
 
             <!-- Venmo -->
-            <a
-              href="https://venmo.com/Isaiah-McCray-8"
-              target="_blank"
-              class="block w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold py-4 rounded-lg hover:shadow-lg transition transform hover:scale-105 text-center"
-            >
+            <a href="https://venmo.com/Isaiah-McCray-8" target="_blank" class="block w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold py-4 rounded-lg hover:shadow-lg transition transform hover:scale-105 text-center">
               📱 Pay with Venmo
             </a>
           </div>
@@ -138,16 +129,13 @@
           <!-- Instructions -->
           <div class="mt-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
             <p class="text-blue-900 text-sm">
-              <strong>Please include:</strong> Invoice number <strong>${invoice?.invoiceNumber || 'N/A'}</strong> in your payment note/memo so we can match it to your invoice.
+              <strong>Please include:</strong> Invoice number <strong id="invoiceCodeRef">-</strong> in your payment note/memo so we can match it to your invoice.
             </p>
           </div>
 
           <!-- Get Receipt Button -->
           <div class="mt-6">
-            <button
-              onclick="downloadReceipt()"
-              class="w-full bg-gradient-to-r from-purple-600 to-cyan-600 text-white font-semibold py-3 rounded-lg hover:shadow-lg transition transform hover:scale-105"
-            >
+            <button onclick="downloadReceipt()" class="w-full bg-gradient-to-r from-purple-600 to-cyan-600 text-white font-semibold py-3 rounded-lg hover:shadow-lg transition transform hover:scale-105">
               📥 Download Receipt
             </button>
           </div>
@@ -171,27 +159,22 @@
   <script>
     let invoice = null;
 
-    // Load invoice on page load
     document.addEventListener('DOMContentLoaded', async () => {
       const params = new URLSearchParams(window.location.search);
       const invoiceId = params.get('id');
-
       if (!invoiceId) {
         showError('Invoice not found');
         return;
       }
-
       await loadInvoice(invoiceId);
     });
 
     async function loadInvoice(invoiceId) {
       try {
         const response = await fetch(`${API_URL}/invoices/${invoiceId}`);
-
         if (!response.ok) {
           throw new Error('Invoice not found');
         }
-
         invoice = await response.json();
         displayInvoice();
         document.getElementById('loadingMessage').classList.add('hidden');
@@ -202,167 +185,102 @@
     }
 
     function displayInvoice() {
-      // Header
       document.getElementById('invoiceNumber').textContent = `Invoice #${invoice.invoiceNumber}`;
       document.getElementById('businessName').textContent = 'Isaiah Business';
       document.getElementById('businessEmail').textContent = 'isaiah@business.com';
-
-      // Client info
       document.getElementById('clientName').textContent = invoice.clientName;
       document.getElementById('clientEmail').textContent = invoice.clientEmail;
-
-      // Dates
       document.getElementById('issueDate').textContent = new Date(invoice.issueDate).toLocaleDateString();
       document.getElementById('dueDate').textContent = new Date(invoice.dueDate).toLocaleDateString();
       document.getElementById('invoiceNum').textContent = invoice.invoiceNumber;
+      document.getElementById('payAmount').textContent = `$${invoice.totalWithFee.toFixed(2)}`;
+      document.getElementById('invoiceCodeRef').textContent = invoice.invoiceNumber;
 
-      // Status
       const statusEl = document.getElementById('status');
       statusEl.textContent = invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1);
-      statusEl.className = `text-lg font-semibold ${
-        invoice.status === 'paid'
-          ? 'text-green-600'
-          : 'text-yellow-600'
-      }`;
+      statusEl.className = `text-lg font-semibold ${invoice.status === 'paid' ? 'text-green-600' : 'text-yellow-600'}`;
 
-      // Items
       const itemsTable = document.getElementById('itemsTable');
-      itemsTable.innerHTML = invoice.items
-        .map(
-          (item) => `
+      itemsTable.innerHTML = invoice.items.map(item => `
         <tr class="border-b border-gray-200">
           <td class="py-3 text-gray-900">${item.description}</td>
           <td class="text-right py-3 text-gray-900">${item.quantity}</td>
           <td class="text-right py-3 text-gray-900">$${item.rate.toFixed(2)}</td>
           <td class="text-right py-3 text-gray-900">$${item.amount.toFixed(2)}</td>
         </tr>
-      `
-        )
-        .join('');
+      `).join('');
 
-      // Summary
       document.getElementById('subtotalAmount').textContent = `$${invoice.subtotal.toFixed(2)}`;
       document.getElementById('feeAmount').textContent = `$${invoice.paymentFee.toFixed(2)}`;
       document.getElementById('totalAmount').textContent = `$${invoice.totalWithFee.toFixed(2)}`;
 
-      // Notes
       if (invoice.notes) {
         document.getElementById('notesSection').classList.remove('hidden');
         document.getElementById('notes').textContent = invoice.notes;
       }
 
-      // Payment section
       if (invoice.status === 'paid') {
         document.getElementById('successMessage').classList.remove('hidden');
       } else {
         document.getElementById('paymentSection').classList.remove('hidden');
-        setupPaymentButtons();
-      }
-    }
-
-    function setupPaymentButtons() {
-      // No setup needed - links are in HTML
-    }
-
-    async function processStripePayment() {
-      try {
-        // Show loading state
-        const btn = document.getElementById('stripeBtn');
-        const originalText = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = '⏳ Processing...';
-
-        const response = await fetch(`${API_URL}/payments/stripe/checkout`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ invoiceId: invoice.id })
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to create payment session');
-        }
-
-        const { sessionId } = await response.json();
-
-        // Get Stripe publishable key
-        const keyResponse = await fetch(`${API_URL}/payments/stripe/key`);
-        if (!keyResponse.ok) {
-          throw new Error('Failed to load Stripe configuration');
-        }
-        const { publishableKey } = await keyResponse.json();
-
-        // Initialize Stripe and redirect to checkout
-        const stripe = Stripe(publishableKey);
-        const { error } = await stripe.redirectToCheckout({ sessionId });
-
-        if (error) {
-          alert('Error redirecting to payment: ' + error.message);
-          btn.disabled = false;
-          btn.textContent = originalText;
-        }
-      } catch (error) {
-        console.error('Stripe payment error:', error);
-        alert('Payment failed: ' + error.message);
-        document.getElementById('stripeBtn').disabled = false;
-        document.getElementById('stripeBtn').textContent = '💳 Pay with Card';
-      }
-    }
-
-    async function processPayPalPayment() {
-      try {
-        // Show loading state
-        const btn = document.getElementById('paypalBtn');
-        const originalText = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = '⏳ Processing...';
-
-        const response = await fetch(`${API_URL}/payments/paypal/checkout`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ invoiceId: invoice.id })
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to create PayPal payment');
-        }
-
-        const { redirectUrl } = await response.json();
-
-        // Store invoiceId in sessionStorage for post-payment
-        sessionStorage.setItem('invoiceId', invoice.id);
-
-        // Redirect to PayPal
-        window.location.href = redirectUrl;
-      } catch (error) {
-        console.error('PayPal payment error:', error);
-        alert('Payment failed: ' + error.message);
-        document.getElementById('paypalBtn').disabled = false;
-        document.getElementById('paypalBtn').textContent = '🅿️ Pay with PayPal';
       }
     }
 
     function downloadReceipt() {
       if (!invoice) return;
 
-      // Build items table rows
-      let itemsRows = '';
+      let itemsHTML = '';
       invoice.items.forEach(item => {
-        itemsRows += '<tr><td>' + item.description + '</td><td>' + item.quantity + '</td><td>$' + item.rate.toFixed(2) + '</td><td>$' + item.amount.toFixed(2) + '</td></tr>';
+        itemsHTML += `<tr><td>${item.description}</td><td>${item.quantity}</td><td>$${item.rate.toFixed(2)}</td><td>$${item.amount.toFixed(2)}</td></tr>`;
       });
 
-      // Create receipt HTML
-      const receiptHTML = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Receipt - Invoice ' + invoice.invoiceNumber + '</title><style>body{font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;background:#f5f5f5}.receipt{background:white;padding:40px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1)}.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #6366f1;padding-bottom:20px}.header h1{margin:0;color:#1f2937;font-size:28px}.header p{margin:5px 0;color:#6b7280}.section-title{font-weight:bold;color:#1f2937;margin-bottom:10px;font-size:14px;text-transform:uppercase;color:#6b7280}.info-row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px}.info-label{color:#6b7280}.info-value{font-weight:500;color:#1f2937}table{width:100%;border-collapse:collapse;margin-bottom:20px}th{text-align:left;padding:10px 0;border-bottom:2px solid #e5e7eb;font-weight:600;color:#1f2937;font-size:13px}td{padding:12px 0;border-bottom:1px solid #e5e7eb;font-size:14px}th:last-child,td:last-child{text-align:right}.summary{float:right;width:40%;background:#f9fafb;padding:15px;border-radius:6px;margin-left:20px}.summary-row{display:flex;justify-content:space-between;margin-bottom:10px;font-size:14px}.summary-total{border-top:2px solid #e5e7eb;padding-top:10px;font-weight:bold;color:#059669;font-size:16px}.footer{text-align:center;margin-top:30px;padding-top:20px;border-top:2px solid #e5e7eb;color:#6b7280;font-size:12px}.paid-badge{display:inline-block;background:#dcfce7;color:#15803d;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:bold;margin-bottom:10px}@media print{body{background:white}.receipt{box-shadow:none}}</style></head><body><div class="receipt"><div class="header"><div class="paid-badge">✓ RECEIPT</div><h1>Invoice ' + invoice.invoiceNumber + '</h1><p>Isaiah Business Invoices</p></div><div style="display:flex;gap:40px;margin-bottom:30px"><div style="flex:1"><div class="section-title">Bill To</div><p style="margin:0;font-weight:500;color:#1f2937">' + invoice.clientName + '</p><p style="margin:5px 0 0 0;color:#6b7280;font-size:14px">' + invoice.clientEmail + '</p></div><div style="flex:1"><div class="info-row"><span class="info-label">Invoice Date:</span><span class="info-value">' + new Date(invoice.issueDate).toLocaleDateString() + '</span></div><div class="info-row"><span class="info-label">Due Date:</span><span class="info-value">' + new Date(invoice.dueDate).toLocaleDateString() + '</span></div><div class="info-row"><span class="info-label">Receipt Date:</span><span class="info-value">' + new Date().toLocaleDateString() + '</span></div></div></div><table><thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>' + itemsRows + '</tbody></table><div class="summary"><div class="summary-row"><span>Subtotal:</span><span>$' + invoice.subtotal.toFixed(2) + '</span></div><div class="summary-row"><span>Payment Fee (3%):</span><span>$' + invoice.paymentFee.toFixed(2) + '</span></div><div class="summary-row summary-total"><span>Total Paid:</span><span>$' + invoice.totalWithFee.toFixed(2) + '</span></div></div><div style="clear:both;margin-top:40px">' + (invoice.notes ? '<div class="section"><div class="section-title">Notes</div><p style="margin:0;color:#4b5563;font-size:14px">' + invoice.notes + '</p></div>' : '') + '<div class="footer"><p style="margin:0">Thank you for your payment!</p><p style="margin:10px 0 0 0">This is your receipt. Please keep it for your records.</p></div></div></div><script>window.print();</script></body></html>';
-
-      // Create a blob and download
-      const blob = new Blob([receiptHTML], { type: 'text/html' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'Receipt_' + invoice.invoiceNumber + '.html';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const receiptWindow = window.open('', '', 'height=600,width=800');
+      const receiptContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Receipt - ${invoice.invoiceNumber}</title>
+          <style>
+            body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; }
+            .receipt { background: white; padding: 30px; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
+            .header h1 { margin: 0; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th { text-align: left; padding: 10px; border-bottom: 1px solid #ddd; }
+            td { padding: 10px; border-bottom: 1px solid #ddd; }
+            .summary { float: right; width: 40%; }
+            .summary-row { display: flex; justify-content: space-between; padding: 5px 0; }
+            @media print { body { background: white; } }
+          </style>
+        </head>
+        <body>
+          <div class="receipt">
+            <div class="header">
+              <h1>RECEIPT</h1>
+              <p>Invoice #${invoice.invoiceNumber}</p>
+            </div>
+            <div><strong>Client:</strong> ${invoice.clientName} (${invoice.clientEmail})</div>
+            <div><strong>Amount:</strong> $${invoice.totalWithFee.toFixed(2)}</div>
+            <div><strong>Date:</strong> ${new Date().toLocaleDateString()}</div>
+            <table>
+              <thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead>
+              <tbody>${itemsHTML}</tbody>
+            </table>
+            <div class="summary">
+              <div class="summary-row"><span>Subtotal:</span><span>$${invoice.subtotal.toFixed(2)}</span></div>
+              <div class="summary-row"><span>Fee (3%):</span><span>$${invoice.paymentFee.toFixed(2)}</span></div>
+              <div class="summary-row" style="font-weight: bold; border-top: 1px solid #333; padding-top: 10px;"><span>Total:</span><span>$${invoice.totalWithFee.toFixed(2)}</span></div>
+            </div>
+            <div style="clear: both; margin-top: 40px; text-align: center; font-size: 12px; color: #666;">
+              <p>Thank you for your payment!</p>
+              <button onclick="window.print()">Print Receipt</button>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+      receiptWindow.document.write(receiptContent);
+      receiptWindow.document.close();
     }
 
     function showError(message) {
