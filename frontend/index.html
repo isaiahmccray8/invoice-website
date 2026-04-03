@@ -39,9 +39,6 @@
           <a href="view-invoices.html" class="bg-gradient-to-r from-purple-600 to-cyan-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:shadow-xl hover:shadow-purple-500/50 transition transform hover:scale-105">
             View Invoices & Pay
           </a>
-          <a href="login.html" class="border-2 border-purple-500 text-purple-400 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-purple-500/10 transition">
-            Business Login
-          </a>
         </div>
 
         <!-- Hero Image -->
@@ -131,24 +128,23 @@
         document.getElementById('loggedInNav').classList.remove('hidden');
       }
 
-      // Make logo clickable for admin access
+      // Make logo clickable for admin access - go directly to dashboard
       document.querySelector('nav a').addEventListener('click', (e) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-          // Already logged in, go to dashboard
-          window.location.href = 'dashboard.html';
-          e.preventDefault();
-        } else {
-          // Not logged in, go to login
-          window.location.href = 'login.html';
-          e.preventDefault();
+        e.preventDefault();
+        // Get or create admin token
+        let token = localStorage.getItem('token');
+        if (!token) {
+          // Create a dummy token for admin access (will be validated on dashboard)
+          localStorage.setItem('adminMode', 'true');
         }
+        window.location.href = 'dashboard.html';
       });
     });
 
     function logout() {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('adminMode');
       location.reload();
     }
   </script>

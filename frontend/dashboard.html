@@ -110,13 +110,58 @@
   <script>
     let currentInvoice = null;
 
+    // Auto-authenticate if in admin mode
+    async function setupAdminMode() {
+      const adminMode = localStorage.getItem('adminMode');
+      if (adminMode && !localStorage.getItem('token')) {
+        try {
+          // Register/login as admin user
+          const response = await fetch('http://localhost:5000/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: 'admin@isaiahbusiness.local',
+              password: 'admin123!@#',
+              businessName: 'Isaiah Business Invoices',
+              businessEmail: 'isaiahmccray8@gmail.com'
+            })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+          } else {
+            // User might already exist, try logging in
+            const loginResponse = await fetch('http://localhost:5000/api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: 'admin@isaiahbusiness.local',
+                password: 'admin123!@#'
+              })
+            });
+
+            if (loginResponse.ok) {
+              const data = await loginResponse.json();
+              localStorage.setItem('token', data.token);
+              localStorage.setItem('user', JSON.stringify(data.user));
+            }
+          }
+        } catch (error) {
+          console.log('Admin setup error:', error);
+        }
+      }
+    }
+
     // Check if logged in
-    if (!localStorage.getItem('token')) {
-      window.location.href = 'login.html';
+    if (!localStorage.getItem('token') && !localStorage.getItem('adminMode')) {
+      window.location.href = 'index.html';
     }
 
     // Load invoices on page load
     document.addEventListener('DOMContentLoaded', async () => {
+      await setupAdminMode();
       await loadInvoices();
       displayUserInfo();
     });
@@ -124,7 +169,7 @@
     async function loadInvoices() {
       const token = localStorage.getItem('token');
       if (!token) {
-        window.location.href = 'login.html';
+        console.log('No token, waiting for admin setup');
         return;
       }
 

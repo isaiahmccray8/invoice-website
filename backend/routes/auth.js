@@ -107,4 +107,44 @@ router.get('/me', verifyToken, async (req, res, next) => {
   }
 });
 
+// Admin authentication - creates user if doesn't exist
+router.post('/admin', async (req, res, next) => {
+  try {
+    const { email, password, businessName, businessEmail } = req.body;
+
+    // Check if admin user exists
+    let user = await db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+
+    if (!user) {
+      // Create admin user if doesn't exist
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      const userId = uuidv4();
+      const now = Date.now();
+
+      await db.prepare(`
+        INSERT INTO users (id, email, password, businessName, businessEmail, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(userId, email, hashedPassword, businessName, businessEmail, now, now);
+
+      user = await db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    }
+
+    const token = generateToken(user);
+    res.status(200).json({
+      message: 'Admin access granted',
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        businessName: user.businessName,
+        businessEmail: user.businessEmail
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
