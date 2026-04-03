@@ -2,7 +2,10 @@ const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
 
-const dbPath = path.join(__dirname, '../invoices.db');
+// Use /tmp for Railway compatibility (ephemeral storage), or local for development
+const dbPath = process.env.NODE_ENV === 'production'
+  ? '/tmp/invoices.db'
+  : path.join(__dirname, '../invoices.db');
 let db = null;
 
 // Initialize database
