@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>View Invoices - Isaiah Business Invoices</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen">
+  <!-- Navigation -->
+  <nav class="border-b border-purple-500/20 backdrop-blur-sm sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+      <a href="index.html" class="text-2xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+        Isaiah Business Invoices
+      </a>
+      <a href="index.html" class="text-gray-400 hover:text-white transition">← Back to Home</a>
+    </div>
+  </nav>
+
+  <div class="min-h-screen flex items-center justify-center px-4 py-8">
+    <div class="w-full max-w-2xl">
+      <!-- Header -->
+      <div class="text-center mb-12">
+        <h1 class="text-4xl font-bold text-white mb-4">View Your Invoice</h1>
+        <p class="text-gray-400">Search for your invoice by number or client name, then click to view and pay</p>
+      </div>
+
+      <!-- Invoice Search -->
+      <div class="bg-gradient-to-br from-purple-500/10 to-cyan-500/10 rounded-2xl border border-purple-500/20 p-8 max-w-2xl mx-auto">
+        <h2 class="text-2xl font-bold text-white mb-6">Search for Your Invoice</h2>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-gray-300 text-sm font-semibold mb-2">Invoice Number or Client Name</label>
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="e.g., INV-547892 or John Smith"
+              class="w-full bg-purple-900/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
+            />
+          </div>
+
+          <div id="searchResults" class="space-y-2 max-h-96 overflow-y-auto">
+            <p class="text-gray-400 text-sm">Start typing to search invoices...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/main.js"></script>
+  <script>
+    let invoices = [];
+
+    // Load invoices on page load
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadInvoices();
+    });
+
+    async function loadInvoices() {
+      try {
+        const response = await fetch(`${API_URL}/invoices/public/list`);
+        if (!response.ok) throw new Error('Failed to load invoices');
+
+        invoices = await response.json();
+        console.log('Loaded invoices:', invoices);
+      } catch (error) {
+        console.error('Error loading invoices:', error);
+        document.getElementById('searchResults').innerHTML =
+          '<p class="text-red-400 text-sm">Unable to load invoices. Please try again.</p>';
+      }
+    }
+
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+      const resultsContainer = document.getElementById('searchResults');
+
+      if (!searchTerm) {
+        resultsContainer.innerHTML = '<p class="text-gray-400 text-sm">Start typing to search invoices...</p>';
+        return;
+      }
+
+      const filtered = invoices.filter(inv =>
+        inv.invoiceNumber.toLowerCase().includes(searchTerm) ||
+        inv.clientName.toLowerCase().includes(searchTerm)
+      );
+
+      if (filtered.length === 0) {
+        resultsContainer.innerHTML = '<p class="text-gray-400 text-sm">No invoices found</p>';
+        return;
+      }
+
+      resultsContainer.innerHTML = filtered.map(inv => `
+        <button
+          onclick="openInvoice('${inv._id}')"
+          class="w-full text-left bg-purple-900/30 hover:bg-purple-900/50 border border-purple-500/30 hover:border-purple-500/50 rounded-lg p-4 transition"
+        >
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="text-white font-semibold">${inv.clientName}</p>
+              <p class="text-gray-400 text-sm">${inv.invoiceNumber}</p>
+            </div>
+            <div class="text-right">
+              <p class="text-cyan-400 font-bold">$${inv.totalWithFee.toFixed(2)}</p>
+              <p class="text-cyan-400 text-xs mt-1">
+                ${inv.status === 'paid' ? '✓ Paid' : '⏳ Pending'}
+              </p>
+            </div>
+          </div>
+          <p class="text-gray-500 text-xs mt-2">Due: ${new Date(inv.dueDate).toLocaleDateString()}</p>
+        </button>
+      `).join('');
+    });
+
+    function openInvoice(invoiceId) {
+      // Directly open invoice without password
+      window.location.href = `invoice-view.html?id=${invoiceId}`;
+    }
+  </script>
+</body>
+</html>

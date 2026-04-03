@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Isaiah Business Invoices</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen">
+  <!-- Navigation -->
+  <nav class="border-b border-purple-500/20 backdrop-blur-sm sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+      <h1 class="text-2xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+        Isaiah Business Invoices
+      </h1>
+      <div class="flex items-center gap-4">
+        <span id="userEmail" class="text-gray-400 text-sm"></span>
+        <button
+          onclick="logout()"
+          class="text-gray-400 hover:text-white transition border border-purple-500/30 px-4 py-2 rounded-lg hover:border-purple-500 hover:bg-purple-500/10"
+        >
+          Logout
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-12">
+      <div>
+        <h2 class="text-4xl font-bold text-white mb-2">Dashboard</h2>
+        <p class="text-gray-400">Manage your invoices and track payments</p>
+      </div>
+      <a
+        href="invoice-create.html"
+        class="bg-gradient-to-r from-purple-600 to-cyan-600 text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition transform hover:scale-105"
+      >
+        + New Invoice
+      </a>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid md:grid-cols-4 gap-6 mb-12">
+      <div class="bg-gradient-to-br from-purple-500/10 to-cyan-500/10 rounded-xl border border-purple-500/20 p-6">
+        <div class="text-sm text-gray-400 mb-2">Total Invoices</div>
+        <div id="totalInvoices" class="text-4xl font-bold text-white">0</div>
+      </div>
+      <div class="bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20 p-6">
+        <div class="text-sm text-gray-400 mb-2">Paid</div>
+        <div id="paidInvoices" class="text-4xl font-bold text-green-400">0</div>
+      </div>
+      <div class="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 rounded-xl border border-yellow-500/20 p-6">
+        <div class="text-sm text-gray-400 mb-2">Pending</div>
+        <div id="pendingInvoices" class="text-4xl font-bold text-yellow-400">0</div>
+      </div>
+      <div class="bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20 p-6">
+        <div class="text-sm text-gray-400 mb-2">Total Revenue</div>
+        <div id="totalRevenue" class="text-4xl font-bold text-purple-400">$0</div>
+      </div>
+    </div>
+
+    <!-- Invoices Table -->
+    <div class="bg-gradient-to-br from-purple-500/10 to-cyan-500/10 rounded-xl border border-purple-500/20 overflow-hidden">
+      <div class="px-6 py-4 border-b border-purple-500/20">
+        <h3 class="text-xl font-bold text-white">Recent Invoices</h3>
+      </div>
+
+      <div id="invoicesContainer" class="divide-y divide-purple-500/20">
+        <div class="p-6 text-center text-gray-400">Loading invoices...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invoice Modal -->
+  <div id="invoiceModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-gradient-to-br from-purple-900/90 to-slate-900/90 rounded-2xl border border-purple-500/20 max-w-2xl w-full max-h-96 overflow-y-auto">
+      <div class="p-6">
+        <div class="flex justify-between items-start mb-4">
+          <h3 id="modalTitle" class="text-2xl font-bold text-white">Invoice Details</h3>
+          <button
+            onclick="closeModal()"
+            class="text-gray-400 hover:text-white transition text-2xl"
+          >
+            ×
+          </button>
+        </div>
+        <div id="modalContent" class="space-y-4 text-gray-300"></div>
+        <div class="flex gap-3 mt-6">
+          <button
+            id="shareBtn"
+            class="flex-1 bg-gradient-to-r from-purple-600 to-cyan-600 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transition"
+          >
+            Share Link
+          </button>
+          <button
+            id="downloadBtn"
+            class="flex-1 bg-purple-500/20 text-purple-400 px-4 py-2 rounded-lg font-semibold hover:bg-purple-500/30 transition"
+          >
+            Download PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/main.js"></script>
+  <script src="js/invoice.js"></script>
+  <script>
+    let currentInvoice = null;
+
+    // Check if logged in
+    if (!localStorage.getItem('token')) {
+      window.location.href = 'login.html';
+    }
+
+    // Load invoices on page load
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadInvoices();
+      displayUserInfo();
+    });
+
+    async function loadInvoices() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = 'login.html';
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/invoices/owner/list`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load invoices');
+        }
+
+        const invoices = await response.json();
+        displayInvoices(invoices);
+        updateStats(invoices);
+      } catch (error) {
+        console.error('Error loading invoices:', error);
+        document.getElementById('invoicesContainer').innerHTML =
+          '<div class="p-6 text-center text-red-400">Failed to load invoices</div>';
+      }
+    }
+
+    function displayInvoices(invoices) {
+      const container = document.getElementById('invoicesContainer');
+
+      if (invoices.length === 0) {
+        container.innerHTML = `
+          <div class="p-6 text-center text-gray-400">
+            <p class="text-lg mb-4">No invoices yet</p>
+            <a href="invoice-create.html" class="text-purple-400 hover:text-purple-300">
+              Create your first invoice →
+            </a>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = invoices
+        .map(
+          (invoice) => `
+        <div class="p-4 hover:bg-purple-500/10 transition cursor-pointer" onclick="viewInvoice('${invoice._id}', this)">
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="font-semibold text-white">${invoice.invoiceNumber}</p>
+              <p class="text-sm text-gray-400">${invoice.clientName}</p>
+            </div>
+            <div class="text-right">
+              <p class="font-semibold text-white">$${invoice.total.toFixed(2)}</p>
+              <span class="text-xs px-2 py-1 rounded ${
+                invoice.status === 'paid'
+                  ? 'bg-green-500/20 text-green-400'
+                  : invoice.status === 'sent'
+                    ? 'bg-yellow-500/20 text-yellow-400'
+                    : 'bg-gray-500/20 text-gray-400'
+              }">
+                ${invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+              </span>
+            </div>
+          </div>
+        </div>
+      `
+        )
+        .join('');
+    }
+
+    function updateStats(invoices) {
+      const total = invoices.length;
+      const paid = invoices.filter((i) => i.status === 'paid').length;
+      const pending = invoices.filter((i) => i.status !== 'paid').length;
+      const revenue = invoices
+        .filter((i) => i.status === 'paid')
+        .reduce((sum, i) => sum + i.total, 0);
+
+      document.getElementById('totalInvoices').textContent = total;
+      document.getElementById('paidInvoices').textContent = paid;
+      document.getElementById('pendingInvoices').textContent = pending;
+      document.getElementById('totalRevenue').textContent = `$${revenue.toFixed(2)}`;
+    }
+
+    function displayUserInfo() {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      document.getElementById('userEmail').textContent = user.email || 'User';
+    }
+
+    async function viewInvoice(invoiceId, element) {
+      const token = localStorage.getItem('token');
+
+      try {
+        const response = await fetch(`${API_URL}/invoices/${invoiceId}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+
+        const invoice = await response.json();
+        currentInvoice = invoice;
+
+        const modal = document.getElementById('invoiceModal');
+        document.getElementById('modalTitle').textContent = `Invoice ${invoice.invoiceNumber}`;
+
+        const content = `
+          <p><strong>Client:</strong> ${invoice.clientName}</p>
+          <p><strong>Email:</strong> ${invoice.clientEmail}</p>
+          <p><strong>Amount:</strong> $${invoice.total.toFixed(2)}</p>
+          <p><strong>With Fee:</strong> $${invoice.totalWithFee.toFixed(2)}</p>
+          <p><strong>Due Date:</strong> ${new Date(invoice.dueDate).toLocaleDateString()}</p>
+          <p><strong>Status:</strong>
+            <span class="px-2 py-1 rounded text-sm ${
+              invoice.status === 'paid'
+                ? 'bg-green-500/20 text-green-400'
+                : 'bg-yellow-500/20 text-yellow-400'
+            }">
+              ${invoice.status}
+            </span>
+          </p>
+        `;
+
+        document.getElementById('modalContent').innerHTML = content;
+
+        document.getElementById('shareBtn').onclick = () => shareInvoice(invoice.invoiceNumber);
+        document.getElementById('downloadBtn').onclick = () => downloadPDF(invoiceId);
+
+        modal.classList.remove('hidden');
+      } catch (error) {
+        console.error('Error loading invoice:', error);
+      }
+    }
+
+    function shareInvoice(invoiceNumber) {
+      const shareUrl = `${window.location.origin}/view-invoices.html`;
+      const shareMessage = `Invoice Link: ${shareUrl}\nInvoice Number: ${invoiceNumber}\n\nPlease visit the link above and search for invoice ${invoiceNumber} to view and pay.`;
+
+      navigator.clipboard.writeText(shareMessage).then(() => {
+        alert('Invoice details copied to clipboard!\n\n' + shareMessage);
+      }).catch(() => {
+        alert('Invoice details:\n\n' + shareMessage);
+      });
+    }
+
+    function downloadPDF(invoiceId) {
+      alert('PDF download feature coming soon!');
+    }
+
+    function closeModal() {
+      document.getElementById('invoiceModal').classList.add('hidden');
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = 'index.html';
+    }
+  </script>
+</body>
+</html>
