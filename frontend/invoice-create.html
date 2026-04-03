@@ -219,16 +219,21 @@
     }
 
     // Set up admin mode on page load
-    document.addEventListener('DOMContentLoaded', setupAdminMode);
+    document.addEventListener('DOMContentLoaded', async () => {
+      await setupAdminMode();
 
-    // Set today's date as default
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('issueDate').value = today;
+      // Set today's date as default
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('issueDate').value = today;
 
-    // Set due date to 30 days from today
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 30);
-    document.getElementById('dueDate').value = dueDate.toISOString().split('T')[0];
+      // Set due date to 30 days from today
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
+      document.getElementById('dueDate').value = dueDate.toISOString().split('T')[0];
+
+      // Add default empty item row
+      addItem();
+    });
 
     function addItem() {
       const container = document.getElementById('itemsContainer');
