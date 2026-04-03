@@ -364,7 +364,28 @@
           return;
         }
 
-        alert('Invoice created successfully!');
+        // Show success confirmation with invoice details
+        const invoice = data.invoice;
+        const confirmationMessage = `
+✅ Invoice Saved Successfully!
+
+Invoice Number: ${invoice.invoiceNumber}
+Client: ${invoice.clientName}
+Email: ${invoice.clientEmail}
+
+Items (${invoice.items?.length || 0}):
+${invoice.items?.map(item => `• ${item.description}: Qty ${item.quantity} × $${item.rate} = $${item.amount.toFixed(2)}`).join('\n')}
+
+Subtotal: $${invoice.subtotal.toFixed(2)}
+Payment Fee (3%): $${invoice.paymentFee.toFixed(2)}
+Total (to charge): $${invoice.totalWithFee.toFixed(2)}
+
+Status: ${invoice.status}
+${invoice.notes ? `\nNotes: ${invoice.notes}` : ''}
+
+Redirecting to dashboard...
+        `;
+        alert(confirmationMessage);
         // Force reload to show new invoice
         window.location.href = 'dashboard.html?refresh=' + Date.now();
       } catch (error) {
