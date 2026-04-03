@@ -1,5 +1,5 @@
-// API Configuration
-const API_URL = 'http://localhost:5000/api';
+// API Configuration - Use relative URL for both local and production
+const API_URL = '/api';
 
 // Check if user is authenticated
 function checkAuth() {

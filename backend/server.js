@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const db = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -25,6 +26,9 @@ app.use(
   })
 );
 
+// Serve static frontend files
+app.use(express.static(path.join(__dirname, '../frontend')));
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ message: 'Server is running', timestamp: new Date() });
@@ -38,9 +42,9 @@ app.use('/api/payments', paymentRoutes);
 // Error handling middleware
 app.use(errorHandler);
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
+// Serve frontend for all non-API routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 // Start server
