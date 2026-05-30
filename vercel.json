@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm install && cp -r frontend public",
+  "buildCommand": "cp -r frontend public",
   "outputDirectory": "public",
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index.js" }
