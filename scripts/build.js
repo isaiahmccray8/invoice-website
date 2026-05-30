@@ -1,8 +1,20 @@
 const fs = require('fs');
 const path = require('path');
 
-const src = path.join(__dirname, '..', 'frontend');
-const dest = path.join(__dirname, '..', 'public');
+const root = path.join(__dirname, '..');
+const src = path.join(root, 'frontend');
+const dest = path.join(root, 'public');
+
+console.log('CWD:', process.cwd());
+console.log('Root:', root);
+console.log('Source:', src);
+console.log('Source exists:', fs.existsSync(src));
+
+if (!fs.existsSync(src)) {
+  console.error('ERROR: frontend directory not found at', src);
+  console.log('Directory contents of root:', fs.readdirSync(root));
+  process.exit(1);
+}
 
 function copyDir(from, to) {
   fs.mkdirSync(to, { recursive: true });
@@ -18,4 +30,4 @@ function copyDir(from, to) {
 }
 
 copyDir(src, dest);
-console.log('Frontend copied to public/');
+console.log('Done — frontend copied to public/');
