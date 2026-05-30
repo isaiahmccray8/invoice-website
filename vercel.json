@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node scripts/build.js",
+  "buildCommand": "node -e \"const fs=require('fs');fs.mkdirSync('public',{recursive:true});fs.readdirSync('frontend').forEach(f=>{const s=require('path').join('frontend',f),d=require('path').join('public',f);fs.cpSync(s,d,{recursive:true})})\"",
   "outputDirectory": "public",
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index.js" }
