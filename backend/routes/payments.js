@@ -2,11 +2,10 @@ const express = require('express');
 const router = express.Router();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const paypal = require('paypal-rest-sdk');
-const { v4: uuidv4 } = require('uuid');
-const db = require('../config/database');
+const Invoice = require('../models/Invoice');
+const Payment = require('../models/Payment');
 const { verifyToken } = require('../middleware/auth');
 
-// Configure PayPal
 paypal.configure({
   mode: process.env.PAYPAL_MODE || 'sandbox',
   client_id: process.env.PAYPAL_CLIENT_ID,
@@ -26,17 +25,11 @@ router.get('/stripe/key', (req, res) => {
 router.post('/stripe/checkout', async (req, res, next) => {
   try {
     const { invoiceId } = req.body;
-
-    let invoice;
-    if (invoiceId) {
-      invoice = await db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoiceId);
-    }
-
+    const invoice = await Invoice.findById(invoiceId);
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found' });
     }
 
-    // Create Stripe session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -56,9 +49,7 @@ router.post('/stripe/checkout', async (req, res, next) => {
       success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/invoice/${invoiceId}`,
       customer_email: invoice.clientEmail,
-      metadata: {
-        invoiceId: invoice.id,
-      },
+      metadata: { invoiceId: invoice._id.toString() },
     });
 
     res.json({ sessionId: session.id, clientSecret: session.client_secret });
@@ -71,49 +62,41 @@ router.post('/stripe/checkout', async (req, res, next) => {
 router.post('/stripe/verify', async (req, res, next) => {
   try {
     const { sessionId } = req.body;
-
     if (!sessionId) {
       return res.status(400).json({ message: 'Session ID required' });
     }
 
-    // Retrieve session from Stripe
     const session = await stripe.checkout.sessions.retrieve(sessionId);
-
-    if (!session) {
-      return res.status(404).json({ message: 'Session not found' });
-    }
-
     const invoiceId = session.metadata?.invoiceId;
 
     if (!invoiceId) {
       return res.status(400).json({ message: 'Invoice ID not found in session' });
     }
 
-    // Check if payment was successful
     if (session.payment_status === 'paid') {
-      // Update invoice status if not already paid
-      const invoice = await db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoiceId);
+      const invoice = await Invoice.findById(invoiceId);
       if (invoice && invoice.status !== 'paid') {
-        const now = Date.now();
-        await db.prepare(`
-          UPDATE invoices
-          SET status = ?, updatedAt = ?
-          WHERE id = ?
-        `).run('paid', now, invoiceId);
+        invoice.status = 'paid';
+        invoice.paidAt = new Date();
+        invoice.paidAmount = invoice.totalWithFee;
+        invoice.paymentMethod = 'stripe';
+        await invoice.save();
 
-        // Create payment record
-        const paymentId = uuidv4();
-        await db.prepare(`
-          INSERT INTO payments (id, invoiceId, userId, amount, paymentMethod, transactionId, status, clientEmail, clientName, paidAt, createdAt)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(paymentId, invoiceId, invoice.userId, invoice.totalWithFee, 'stripe', session.payment_intent, 'success', invoice.clientEmail, invoice.clientName, now, now);
+        await Payment.create({
+          invoiceId: invoice._id,
+          userId: invoice.userId,
+          amount: invoice.totalWithFee,
+          paymentMethod: 'stripe',
+          transactionId: session.payment_intent,
+          stripeSessionId: session.id,
+          status: 'success',
+          clientEmail: invoice.clientEmail,
+          clientName: invoice.clientName,
+          paidAt: new Date(),
+        });
       }
 
-      res.json({
-        message: 'Payment verified',
-        invoiceId: invoiceId,
-        paymentStatus: 'paid'
-      });
+      res.json({ message: 'Payment verified', invoiceId, paymentStatus: 'paid' });
     } else {
       res.status(400).json({ message: 'Payment not completed', paymentStatus: session.payment_status });
     }
@@ -126,26 +109,14 @@ router.post('/stripe/verify', async (req, res, next) => {
 router.post('/paypal/checkout', async (req, res, next) => {
   try {
     const { invoiceId } = req.body;
-
-    let invoice;
-    if (invoiceId) {
-      invoice = await db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoiceId);
-    }
-
+    const invoice = await Invoice.findById(invoiceId);
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found' });
     }
 
     const paymentJson = {
       intent: 'sale',
-      payer: {
-        payment_method: 'paypal',
-        payer_info: {
-          email: invoice.clientEmail,
-          first_name: invoice.clientName.split(' ')[0],
-          last_name: invoice.clientName.split(' ')[1] || '',
-        },
-      },
+      payer: { payment_method: 'paypal' },
       redirect_urls: {
         return_url: `${process.env.FRONTEND_URL}/payment-success?invoice=${invoiceId}&method=paypal`,
         cancel_url: `${process.env.FRONTEND_URL}/invoice/${invoiceId}`,
@@ -155,10 +126,6 @@ router.post('/paypal/checkout', async (req, res, next) => {
           amount: {
             currency: 'USD',
             total: invoice.totalWithFee.toFixed(2),
-            details: {
-              subtotal: invoice.total.toFixed(2),
-              fee: invoice.paymentFee.toFixed(2),
-            },
           },
           description: `Invoice ${invoice.invoiceNumber}`,
           invoice_number: invoice.invoiceNumber,
@@ -166,15 +133,12 @@ router.post('/paypal/checkout', async (req, res, next) => {
       ],
     };
 
-    paypal.payment.create(paymentJson, async (error, payment) => {
+    paypal.payment.create(paymentJson, (error, payment) => {
       if (error) {
-        console.error('PayPal error:', error);
-        return res.status(400).json({ message: 'PayPal error', error });
-      } else {
-        // Get redirect URL
-        const redirectUrl = payment.links.find((link) => link.rel === 'approval_url').href;
-        res.json({ redirectUrl, paymentId: payment.id });
+        return next(error);
       }
+      const redirectUrl = payment.links.find((l) => l.rel === 'approval_url').href;
+      res.json({ redirectUrl, paymentId: payment.id });
     });
   } catch (error) {
     next(error);
@@ -186,54 +150,38 @@ router.post('/paypal/execute', async (req, res, next) => {
   try {
     const { paymentId, payerId, invoiceId } = req.body;
 
-    const executePaymentJson = {
-      payer_id: payerId,
-    };
-
-    paypal.payment.execute(paymentId, executePaymentJson, async (error, payment) => {
+    paypal.payment.execute(paymentId, { payer_id: payerId }, async (error, payment) => {
       if (error) {
-        console.error('PayPal execute error:', error);
-        return res.status(400).json({ message: 'Payment execution failed' });
-      } else {
-        if (payment.state === 'approved') {
-          // Update invoice
-          const invoice = await db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoiceId);
-          if (invoice) {
-            const now = Date.now();
-            await db.prepare(`
-              UPDATE invoices
-              SET status = ?, updatedAt = ?
-              WHERE id = ?
-            `).run('paid', now, invoiceId);
+        return next(error);
+      }
 
-            // Create payment record
-            const paymentRecord = {
-              id: uuidv4(),
-              invoiceId: invoice.id,
-              userId: invoice.userId,
-              amount: invoice.totalWithFee,
-              paymentMethod: 'paypal',
-              transactionId: payment.id,
-              status: 'success',
-              clientEmail: invoice.clientEmail,
-              clientName: invoice.clientName,
-              paidAt: now,
-              createdAt: now,
-            };
+      if (payment.state === 'approved') {
+        const invoice = await Invoice.findById(invoiceId);
+        if (invoice) {
+          invoice.status = 'paid';
+          invoice.paidAt = new Date();
+          invoice.paidAmount = invoice.totalWithFee;
+          invoice.paymentMethod = 'paypal';
+          await invoice.save();
 
-            await db.prepare(`
-              INSERT INTO payments (id, invoiceId, userId, amount, paymentMethod, transactionId, status, clientEmail, clientName, paidAt, createdAt)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(paymentRecord.id, paymentRecord.invoiceId, paymentRecord.userId, paymentRecord.amount, paymentRecord.paymentMethod, paymentRecord.transactionId, paymentRecord.status, paymentRecord.clientEmail, paymentRecord.clientName, paymentRecord.paidAt, paymentRecord.createdAt);
-          }
-
-          res.json({
-            message: 'Payment successful',
-            paymentId: payment.id,
+          await Payment.create({
+            invoiceId: invoice._id,
+            userId: invoice.userId,
+            amount: invoice.totalWithFee,
+            paymentMethod: 'paypal',
+            transactionId: payment.id,
+            paypalPaymentId: payment.id,
+            paypalExecutionId: payerId,
+            status: 'success',
+            clientEmail: invoice.clientEmail,
+            clientName: invoice.clientName,
+            paidAt: new Date(),
           });
-        } else {
-          res.status(400).json({ message: 'Payment not approved' });
         }
+
+        res.json({ message: 'Payment successful', paymentId: payment.id });
+      } else {
+        res.status(400).json({ message: 'Payment not approved' });
       }
     });
   } catch (error) {
@@ -241,7 +189,7 @@ router.post('/paypal/execute', async (req, res, next) => {
   }
 });
 
-// Stripe webhook handler
+// Stripe webhook
 router.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -254,29 +202,32 @@ router.post('/webhook/stripe', express.raw({ type: 'application/json' }), async 
       const invoiceId = session.metadata?.invoiceId;
 
       if (invoiceId) {
-        // Update invoice
-        const invoice = await db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoiceId);
-        if (invoice) {
-          const now = Date.now();
-          await db.prepare(`
-            UPDATE invoices
-            SET status = ?, updatedAt = ?
-            WHERE id = ?
-          `).run('paid', now, invoiceId);
+        const invoice = await Invoice.findById(invoiceId);
+        if (invoice && invoice.status !== 'paid') {
+          invoice.status = 'paid';
+          invoice.paidAt = new Date();
+          invoice.paidAmount = invoice.totalWithFee;
+          invoice.paymentMethod = 'stripe';
+          await invoice.save();
 
-          // Create payment record
-          const paymentId = uuidv4();
-          await db.prepare(`
-            INSERT INTO payments (id, invoiceId, userId, amount, paymentMethod, transactionId, status, clientEmail, clientName, paidAt, createdAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).run(paymentId, invoice.id, invoice.userId, invoice.totalWithFee, 'stripe', session.payment_intent, 'success', invoice.clientEmail, invoice.clientName, now, now);
+          await Payment.create({
+            invoiceId: invoice._id,
+            userId: invoice.userId,
+            amount: invoice.totalWithFee,
+            paymentMethod: 'stripe',
+            transactionId: session.payment_intent,
+            stripeSessionId: session.id,
+            status: 'success',
+            clientEmail: invoice.clientEmail,
+            clientName: invoice.clientName,
+            paidAt: new Date(),
+          });
         }
       }
     }
 
     res.json({ received: true });
   } catch (error) {
-    console.error('Webhook error:', error);
     res.status(400).send(`Webhook Error: ${error.message}`);
   }
 });

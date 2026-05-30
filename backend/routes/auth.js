@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
-const { v4: uuidv4 } = require('uuid');
-const db = require('../config/database');
+const User = require('../models/User');
 const { generateToken, verifyToken } = require('../middleware/auth');
 
 // Register business owner
@@ -10,49 +8,29 @@ router.post('/register', async (req, res, next) => {
   try {
     const { email, password, businessName, businessEmail } = req.body;
 
-    // Validation
     if (!email || !password || !businessName || !businessEmail) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    // Check if user exists
-    const existingUser = await db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-    if (existingUser) {
+    const existing = await User.findOne({ email });
+    if (existing) {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create user
-    const userId = uuidv4();
-    const now = Date.now();
-
-    await db.prepare(`
-      INSERT INTO users (id, email, password, businessName, businessEmail, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(userId, email, hashedPassword, businessName, businessEmail, now, now);
-
-    const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    const user = await User.create({ email, password, businessName, businessEmail });
     const token = generateToken(user);
 
     res.status(201).json({
       message: 'User registered successfully',
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        businessName: user.businessName,
-        businessEmail: user.businessEmail
-      }
+      user: { id: user._id, email: user.email, businessName: user.businessName, businessEmail: user.businessEmail },
     });
   } catch (error) {
     next(error);
   }
 });
 
-// Login business owner
+// Login
 router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -61,14 +39,12 @@ router.post('/login', async (req, res, next) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Find user
-    const user = await db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const user = await User.findOne({ email }).select('+password');
     if (!user) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    // Check password
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
@@ -77,12 +53,7 @@ router.post('/login', async (req, res, next) => {
     res.json({
       message: 'Login successful',
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        businessName: user.businessName,
-        businessEmail: user.businessEmail
-      }
+      user: { id: user._id, email: user.email, businessName: user.businessName, businessEmail: user.businessEmail },
     });
   } catch (error) {
     next(error);
@@ -92,55 +63,32 @@ router.post('/login', async (req, res, next) => {
 // Get current user
 router.get('/me', verifyToken, async (req, res, next) => {
   try {
-    const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.json({
-      id: user.id,
-      email: user.email,
-      businessName: user.businessName,
-      businessEmail: user.businessEmail
-    });
+    res.json({ id: user._id, email: user.email, businessName: user.businessName, businessEmail: user.businessEmail });
   } catch (error) {
     next(error);
   }
 });
 
-// Admin authentication - creates user if doesn't exist
+// Admin auth - creates user if doesn't exist
 router.post('/admin', async (req, res, next) => {
   try {
     const { email, password, businessName, businessEmail } = req.body;
 
-    // Check if admin user exists
-    let user = await db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    let user = await User.findOne({ email }).select('+password');
 
     if (!user) {
-      // Create admin user if doesn't exist
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-
-      const userId = uuidv4();
-      const now = Date.now();
-
-      await db.prepare(`
-        INSERT INTO users (id, email, password, businessName, businessEmail, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(userId, email, hashedPassword, businessName, businessEmail, now, now);
-
-      user = await db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+      user = await User.create({ email, password, businessName, businessEmail });
     }
 
     const token = generateToken(user);
-    res.status(200).json({
+    res.json({
       message: 'Admin access granted',
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        businessName: user.businessName,
-        businessEmail: user.businessEmail
-      }
+      user: { id: user._id, email: user.email, businessName: user.businessName, businessEmail: user.businessEmail },
     });
   } catch (error) {
     next(error);

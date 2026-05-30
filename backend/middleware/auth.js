@@ -37,7 +37,7 @@ const verifyClientToken = (req, res, next) => {
 // Generate JWT token
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user.id, email: user.email },
+    { id: user._id, email: user.email },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
