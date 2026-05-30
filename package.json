@@ -4,13 +4,25 @@
   "description": "Isaiah Business Invoices - Professional invoice management system",
   "main": "backend/server.js",
   "scripts": {
-    "start": "cd backend && npm install && npm start",
-    "install-all": "npm install && cd backend && npm install"
+    "start": "node backend/server.js",
+    "dev": "cd backend && npm run dev"
   },
-  "keywords": ["invoice", "business", "payments"],
-  "author": "Isaiah McCray",
-  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^8.0.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.0",
+    "dotenv": "^16.0.3",
+    "stripe": "^12.0.0",
+    "paypal-rest-sdk": "^1.7.1",
+    "pdfkit": "^0.13.0",
+    "nodemailer": "^6.9.0",
+    "cors": "^2.8.5",
+    "uuid": "^9.0.0"
+  },
   "engines": {
     "node": "24.x"
-  }
+  },
+  "author": "Isaiah McCray",
+  "license": "MIT"
 }
