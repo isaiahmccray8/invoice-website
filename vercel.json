@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cp -r frontend public",
+  "buildCommand": "node scripts/build.js",
   "outputDirectory": "public",
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index.js" }
