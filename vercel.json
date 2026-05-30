@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "cd backend && npm install",
+  "buildCommand": "npm install --prefix backend",
   "builds": [
     {
       "src": "backend/server.js",
